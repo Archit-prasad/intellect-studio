@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* scroll-behavior must be auto for GSAP ScrollTrigger scrub to work */
+  scroll-behavior: auto;
+}
+
+body {
+  overflow-x: hidden;
+  background: #FDFBF7;
+  /* Prevent body from becoming an unexpected containing block */
+  /* for fixed children — keep position at default (static) */
+}
+
+#root {
+  /* Full width, no height constraint — let content drive height */
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Terminal cursor blink */
+@keyframes cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: cursor-blink 0.8s infinite;
+}
+
+/* Cursor glow pulse */
+@keyframes cursor-glow {
+  0%, 100% {
+    text-shadow: 0 0 6px rgba(255,255,255,0.8), 0 0 12px rgba(255,255,255,0.4);
+    opacity: 1;
+  }
+  50% {
+    text-shadow: 0 0 12px rgba(255,255,255,1), 0 0 24px rgba(255,255,255,0.6), 0 0 40px rgba(255,255,255,0.3);
+    opacity: 0;
+  }
+}
+
+.cursor-glow-blink {
+  animation: cursor-glow 0.8s infinite;
+}
+
+/* Clip mask text reveal */
+.clip-reveal {
+  clip-path: inset(0 100% 0 0);
+}
+
+.clip-revealed {
+  clip-path: inset(0 0% 0 0);
+  transition: clip-path 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Odometer digit */
+@keyframes odometer-scroll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-100%); }
+}
+
+/* Scroll snap for main sections */
+.snap-container {
+  scroll-snap-type: y mandatory;
+  overflow-y: scroll;
+  height: 100vh;
+}
+
+.snap-section {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  height: 100vh;
+  min-height: 100vh;
+}
+
+/* HUD bracket corners */
+.hud-bracket::before,
+.hud-bracket::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+
+/* Card tilt 3D */
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out;
+}
+
+/* Magnetic button transition */
+.magnetic-btn {
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Smooth background transition */
+.bg-transition {
+  transition: background-color 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Glow border animation */
+@keyframes border-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.glow-border {
+  animation: border-glow 2s ease-in-out infinite;
+}
+
+/* Portal mask will-change */
+.portal-mask {
+  will-change: transform;
+  transform-origin: 50% 50%;
+}
+
+/* Hero text will-change */
+.hero-animated {
+  will-change: transform;
+}
