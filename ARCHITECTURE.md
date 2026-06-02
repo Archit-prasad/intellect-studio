@@ -10,7 +10,7 @@
 
 1. [Core Technology Stack](#1-core-technology-stack)
 2. [Project Directory Tree](#2-project-directory-tree)
-3. [Scroll Architecture — The Dual-Scroll Model](#3-scroll-architecture--the-dual-scroll-model)
+3. [Scroll Architecture — Single Window-Scroll Model](#3-scroll-architecture--single-window-scroll-model)
 4. [Component Architecture & Z-Index Layering](#4-component-architecture--z-index-layering)
 5. [VRPortal — The Immersive Entry System](#5-vrportal--the-immersive-entry-system)
 6. [Main Sections — Five-Stage Content Hub](#6-main-sections--five-stage-content-hub)
@@ -25,6 +25,7 @@
 | Library / Tool | Version | Role in Project |
 | :--- | :---: | :--- |
 | **React** | 19.2.6 | UI component tree, hooks (`useRef`, `useState`, `useEffect`, `useCallback`), StrictMode safety |
+| **react-router-dom** | 7.x | Client-side routing — `BrowserRouter`, `Routes`, `Route`, `Link`, `useLocation` for three-route SPA (`/`, `/portfolio`, `/teams`) |
 | **Vite** | 8.0.12 | Dev server with HMR, ESM-native bundling, production build optimisation |
 | **Tailwind CSS** | 3.4.19 | Utility-first styling for layout, typography, spacing, and responsive breakpoints |
 | **PostCSS + Autoprefixer** | 8.5 / 10.5 | CSS transform pipeline, vendor prefix injection |
@@ -48,23 +49,28 @@ intellect-studio/
 │   │                               #   mix-blend-mode: multiply applied in CSS
 │   │                               #   to neutralise white canvas exports.
 │   ├── favicon.svg
-│   └── icons.svg
+│   ├── icons.svg
+│   └── *.jpg                       # Portfolio project thumbnails (kaex, urbx, navirex, etc.)
 │
 ├── src/
 │   ├── main.jsx                    # ★ App entry — GSAP plugin registration lives HERE only
-│   ├── App.jsx                     # Root layout: portal runway + #main-content scroll box
+│   ├── App.jsx                     # Root router: BrowserRouter + ScrollToTop + three routes
 │   ├── index.css                   # Tailwind directives + global resets + keyframe animations
 │   ├── App.css                     # (Legacy Vite scaffold — unused, not imported)
 │   │
 │   ├── components/
-│   │   ├── VRPortal.jsx            # ★ Portal system — scroll runway, mask zoom, typewriter
+│   │   ├── VRPortal.jsx            # ★ Portal system — 150vh runway, mask zoom, typewriter
 │   │   │
-│   │   └── sections/              # Five full-viewport content sections
-│   │       ├── HeroSection.jsx     # Section 1 — Landing hub, magnetic buttons
-│   │       ├── AboutSection.jsx    # Section 2 — Editorial parallax, blur-reveal lines
+│   │   └── sections/              # Five full-viewport content sections (window-scroll order)
+│   │       ├── HeroSection.jsx     # Section 1 — Landing hub, magnetic links, Teams button
+│   │       ├── AboutSection.jsx    # Section 2 — Editorial parallax, blur-reveal, marquee tags
 │   │       ├── PortfolioSection.jsx # Section 3 — Dark triptych grid, 3D card tilt
-│   │       ├── MetricsSection.jsx  # Section 4 — Odometer counters, black strip
-│   │       └── FooterSection.jsx   # Section 5 — Terminal CTA, frosted-glass buttons
+│   │       ├── MetricsSection.jsx  # Section 4 — Odometer counters, crosshair intersections
+│   │       └── FooterSection.jsx   # Section 5 — Terminal typewriter CTA, micro-typography
+│   │
+│   ├── pages/                      # Full-page route components (non-homepage routes)
+│   │   ├── PortfolioPage.jsx        # /portfolio — full project listing
+│   │   └── TeamsPage.jsx            # /teams — team roster
 │   │
 │   └── assets/                     # Bundled static assets (imported by JS modules)
 │       ├── hero.png
@@ -84,97 +90,96 @@ intellect-studio/
 
 ---
 
-## 3. Scroll Architecture — The Dual-Scroll Model
+## 3. Scroll Architecture — Single Window-Scroll Model
 
-The site uses **two completely independent scroll contexts** in sequence. Understanding this split is critical before modifying any scroll-related code.
+The site uses a **single scroll context: the window**. There is no inner scroll container. Both the VRPortal animation and all section entry triggers read from `window.scrollY`.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  CONTEXT A — Window scroll  (drives VRPortal animation)             │
+│  WINDOW SCROLL — drives portal animation AND section visibility     │
 │                                                                     │
-│  Document height = 300 vh (portal runway) + 100 vh (#main-content) │
-│                   = 400 vh total                                    │
-│  Window scroll range = 0 → 300 vh  (viewport = 100 vh)             │
+│  Approximate document height:                                       │
+│    150 vh (portal runway) + 5 × 100 vh (sections) ≈ 650 vh         │
 │                                                                     │
 │  ╔═ 0 vh ══════════════════════════════════════════════════════╗   │
-│  ║  Portal runway div (300 vh, empty spacer)                   ║   │
-│  ║  → GSAP ScrollTrigger scrubs from 0 → 300 vh               ║   │
-│  ║  → Fixed overlay elements animate on top                    ║   │
-│  ╚═ 300 vh ════════════════════════════════════════════════════╝   │
+│  ║  VRPortal runway (150 vh, empty spacer)                     ║   │
+│  ║  → GSAP ScrollTrigger fires from start:'top top'            ║   │
+│  ║  → Animation compressed to first +=1100 px of this runway   ║   │
+│  ║  → snap: 1/(N_SECTIONS-1) steps on the portal timeline      ║   │
+│  ║  → Fixed overlay elements animate in viewport z-stack       ║   │
+│  ╚═ 150 vh ═══════════════════════════════════════════════════╝   │
 │                                                                     │
-│  ╔═ 300 vh ═══════════════════════════════════════════════════╗    │
-│  ║  #main-content  (height: 100 vh, overflow-y: scroll)       ║    │
-│  ║  → Enters viewport at window scroll = 300 vh               ║    │
-│  ║  → Portal onLeave fires; fixed overlays become invisible   ║    │
-│  ╚═ 400 vh ════════════════════════════════════════════════════╝   │
-└─────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────┐
-│  CONTEXT B — #main-content inner scroll  (drives 5 sections)        │
-│                                                                     │
-│  scroll-snap-type: y mandatory                                      │
-│  overflow-y: scroll                                                 │
-│  height: 100 vh                                                     │
-│  overscroll-behavior: contain  ← prevents propagation to window    │
-│                                                                     │
-│  Inner scroll distance = 5 sections × 100 vh = 500 vh              │
-│                                                                     │
-│  ┌─ 0 ────────────────────────┐  scroll-snap-align: start          │
-│  │  HeroSection     (100 vh)  │                                     │
-│  ├─ 100 vh ──────────────────┤  scroll-snap-align: start          │
-│  │  AboutSection    (100 vh)  │                                     │
-│  ├─ 200 vh ──────────────────┤  scroll-snap-align: start          │
-│  │  PortfolioSection(100 vh)  │                                     │
-│  ├─ 300 vh ──────────────────┤  scroll-snap-align: start          │
-│  │  MetricsSection  (100 vh)  │                                     │
-│  ├─ 400 vh ──────────────────┤  scroll-snap-align: start          │
-│  │  FooterSection   (100 vh)  │                                     │
-│  └─ 500 vh ──────────────────┘                                     │
+│  ╔═ ~150 vh ════════════════════════════════════════════════════╗  │
+│  ║  HeroSection (100 vh)  ← portal onLeave fires here          ║  │
+│  ╠═ ~250 vh ════════════════════════════════════════════════════╣  │
+│  ║  AboutSection (100 vh)                                       ║  │
+│  ╠═ ~350 vh ════════════════════════════════════════════════════╣  │
+│  ║  PortfolioSection (min-h-screen)                             ║  │
+│  ╠═ ~450+ vh ═══════════════════════════════════════════════════╣  │
+│  ║  MetricsSection (100 vh)                                     ║  │
+│  ╠═ ~550+ vh ═══════════════════════════════════════════════════╣  │
+│  ║  FooterSection (100 vh)                                      ║  │
+│  ╚═ ~650+ vh ════════════════════════════════════════════════════╝ │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Why NOT a single window scroll?
+### Why the dual-scroll model was removed
 
-Using `scroll-snap-type: y mandatory` on `<body>` conflicts with GSAP ScrollTrigger's `scrub` mechanism: the snap would fight the scrub, producing jerky portal animation. The split keeps GSAP's scroll domain (window) fully separate from the snap domain (`#main-content`).
+The original architecture used a `#main-content` inner scroll container (`overflow-y: scroll`, `height: 100vh`) with `scroll-snap-type: y mandatory`. This was replaced for three reasons:
 
-### Why NOT `scroller: '#main-content'` in section GSAP animations?
+1. **GSAP scroller conflict** — GSAP ScrollTrigger's `_getScrollFunc()` accesses `element._gsap` during scroll-metric initialisation. On a native `overflow-y: scroll` container it runs before GSAP has initialised its internal data store, producing `TypeError: Cannot read properties of undefined (reading '_gsap')`.
+2. **IntersectionObserver root leaks** — Sections using `root: document.querySelector('#main-content')` would silently degrade to `root: null` (window) if the container was ever renamed or removed, breaking visibility detection invisibly.
+3. **Router integration** — Page transitions via `react-router-dom` unmount `HomePage` entirely. Killing all ScrollTrigger instances on unmount (in `HomePage`'s cleanup `useEffect`) is clean and reliable on a window scroller; it was error-prone when a secondary scroll container held its own scroll offset across mounts.
 
-GSAP ScrollTrigger's internal `_getScrollFunc()` accesses `target._gsap` on the scroller element as part of scroll-metric initialisation. On a native `overflow-y: scroll` container this runs before GSAP has initialised its internal data store on that element, producing `TypeError: Cannot read properties of undefined (reading '_gsap')`. Sections therefore use **`IntersectionObserver`** with `root: document.querySelector('#main-content')` for all entry-detection — identical precision, zero GSAP scroller involvement.
+### Route change scroll reset
+
+`<ScrollToTop />` is a utility component mounted inside `<BrowserRouter>` (sibling to `<Routes>`). It watches `useLocation().pathname` and on every change fires `window.scrollTo(0, 0)` and clears any `overflow` lock GSAP may have pinned to `document.body`. This ensures every page transition starts at the top with no leftover body-scroll state from the previous route.
 
 ---
 
 ## 4. Component Architecture & Z-Index Layering
 
-### `App.jsx` — Orchestration layer
+### `App.jsx` — Router and orchestration layer
 
-`App.jsx` owns the top-level document structure and imposes two hard rules on the outer container:
+`App.jsx` owns routing and the top-level document structure. It defines three components:
+
+- **`ScrollToTop`** — reads `useLocation().pathname`, resets `window.scrollTo(0,0)` and clears `document.body.style.overflow` on every route change.
+- **`HomePage`** — mounts the portal + five sections in a single `position: relative` wrapper; kills all ScrollTrigger instances on unmount to prevent leaks when routing away.
+- **`App`** — renders `BrowserRouter > ScrollToTop + Routes` with three routes: `/`, `/portfolio`, `/teams`.
+
+The `HomePage` wrapper imposes two hard rules:
 
 1. **No `overflow-x: hidden`** — Setting `overflow-x: hidden` on a `position: relative` div implicitly sets `overflow-y: auto` in most browsers, creating an unintended scroll container. Fixed descendants inside that container get re-parented relative to it rather than the viewport. `overflow-x: hidden` lives only on `<body>` in `index.css`, which does not carry this side-effect.
 
 2. **`position: relative` only** — No `transform`, `filter`, `perspective`, or `will-change: transform`. Any of these properties would create a new CSS containing block, causing all `position: fixed` children in `VRPortal` to be positioned relative to the App div instead of the viewport.
 
 ```
-App (position: relative)
- ├── VRPortal (Fragment — returns multiple root nodes)
- │    ├── <div>  runway spacer   — 300 vh, empty, no children
- │    ├── <div>  heroPreview     — position:fixed, z-index: 5
- │    ├── <div>  overlayRef      — position:fixed, z-index: 20
- │    ├── <div>  brandRef        — position:fixed, z-index: 30
- │    └── <div>  typeUIRef       — position:fixed, z-index: 30
- │
- └── <div id="main-content">   — position:relative, z-index: 1
-      ├── HeroSection           — scroll-snap-align: start
-      ├── AboutSection          — scroll-snap-align: start
-      ├── PortfolioSection      — scroll-snap-align: start
-      ├── MetricsSection        — scroll-snap-align: start
-      └── FooterSection         — scroll-snap-align: start
+BrowserRouter
+ ├── ScrollToTop              — pathname watcher, no DOM output
+ └── Routes
+      ├── / → HomePage (position: relative)
+      │         ├── VRPortal (Fragment — multiple root nodes)
+      │         │    ├── <div>  runway spacer  — 150 vh, empty, no children
+      │         │    ├── <div>  heroPreview    — position:fixed, z-index: 5
+      │         │    ├── <div>  overlayRef     — position:fixed, z-index: 20
+      │         │    ├── <div>  brandRef       — position:fixed, z-index: 30
+      │         │    └── <div>  typeUIRef      — position:fixed, z-index: 30
+      │         │
+      │         ├── HeroSection          — 100 vh, window scroll
+      │         ├── AboutSection         — 100 vh, window scroll
+      │         ├── PortfolioSection     — min-h-screen, window scroll
+      │         ├── MetricsSection       — 100 vh, window scroll
+      │         └── FooterSection        — 100 vh, window scroll
+      │
+      ├── /portfolio → PortfolioPage
+      └── /teams     → TeamsPage
 ```
 
 ### Z-Index reference table
 
 | Layer | Element | `z-index` | `position` | Description |
 | :--- | :--- | :---: | :--- | :--- |
-| Base document | `<body>` bg, `#main-content` | `1` | `relative` | Sand background; section scroll container |
+| Base document | `<body>` bg, `HomePage` wrapper | `1` | `relative` | Sand background; sections flow in normal document order |
 | Hero preview | `heroPreviewRef` | `5` | `fixed` | Sand canvas + INTELLECT/STUDIO text. Visible through VR lens. |
 | VR mask overlay | `overlayRef` (img) | `20` | `fixed` | VR headset PNG with `mix-blend-mode: multiply` |
 | Portal UI | `brandRef`, `typeUIRef` | `30` | `fixed` | Brand tag + terminal typewriter. Fade on first scroll. |
@@ -187,7 +192,7 @@ App (position: relative)
 ```jsx
 return (
   <>
-    <div ref={runwayRef} style={{ height: '300vh' }} />   {/* scroll trigger only */}
+    <div ref={runwayRef} style={{ height: '150vh' }} />   {/* scroll trigger only */}
     <div ref={heroPreviewRef} style={{ position: 'fixed', zIndex: 5 }} />
     <div ref={overlayRef}    style={{ position: 'fixed', zIndex: 20 }} />
     <div ref={brandRef}      style={{ position: 'fixed', zIndex: 30 }} />
@@ -217,17 +222,18 @@ Page load (scroll = 0)
 │  CREATE. █           (typewriter, z:30)         │
 └────────────────────────────────────────────────┘
 
-User scrolls 0 → 300 vh  (GSAP scrub drives timeline progress 0 → 1)
+User scrolls over first +=1100px of runway  (GSAP scrub drives timeline progress 0 → 1)
   ├─ mask img:      scale  1.0  → 35.0   (zooms off-screen from centre)
   ├─ heroText h1:   scale  0.7  → 1.0    (grows into full-size layout position)
   ├─ studioText h2: scale  0.7  → 1.0    (same, in sync)
   ├─ heroPreview:   opacity 1   → 0      (fades at progress 0.88)
-  └─ brandRef + typeUIRef: opacity 1 → 0  (instant on progress > 0.02)
+  ├─ brandRef + typeUIRef: opacity 1 → 0  (instant on progress > 0.02)
+  └─ snap: fires at 1/(N_SECTIONS-1) intervals for tactile step feel
 
-scroll = 300 vh  (onLeave fires)
+scroll exits runway (onLeave fires)
   ├─ overlayRef.style.visibility  = 'hidden'
   ├─ heroPreview.style.visibility = 'hidden'
-  └─ #main-content enters the viewport
+  └─ HeroSection enters the viewport via normal window scroll
 ```
 
 ### GSAP timeline construction
@@ -236,17 +242,22 @@ scroll = 300 vh  (onLeave fires)
 // Inside useGSAP — runs once after first mount
 const tl = gsap.timeline({
   scrollTrigger: {
-    trigger: runwayRef.current,   // empty 300 vh spacer
+    trigger: runwayRef.current,   // empty 150 vh spacer
     start:   'top top',           // animation starts when spacer top = viewport top
-    end:     'bottom top',        // animation ends when spacer bottom = viewport top
+    end:     '+=1100',            // compressed to ~1100px of scroll (not full runway height)
     scrub:   1,                   // 1s lag between scroll and animation playhead
+    snap: {                       // tactile step feedback between portal frames
+      snapTo:   1 / (N_SECTIONS - 1),
+      duration: { min: 0.2, max: 0.6 },
+      ease:     'power1.inOut',
+    },
     // pin: true is INTENTIONALLY ABSENT — see §4 Fragment rationale
   }
 });
 
 // Each target is individually null-guarded before being added:
-if (maskImgRef.current)   tl.to(maskImgRef.current,   { scale: 35, ease: 'power2.in' }, 0);
-if (heroTextRef.current)  tl.fromTo(heroTextRef.current,  { scale: 0.7 }, { scale: 1.0 }, 0);
+if (maskImgRef.current)    tl.to(maskImgRef.current,    { scale: 35, ease: 'power2.in' }, 0);
+if (heroTextRef.current)   tl.fromTo(heroTextRef.current,   { scale: 0.7 }, { scale: 1.0 }, 0);
 if (studioTextRef.current) tl.fromTo(studioTextRef.current, { scale: 0.7 }, { scale: 1.0 }, 0);
 if (heroPreviewRef.current) tl.to(heroPreviewRef.current, { opacity: 0 }, 0.88);
 ```
@@ -270,26 +281,34 @@ The `mix-blend-mode: multiply` also means the dark wireframe lines of the headse
 
 ## 6. Main Sections — Five-Stage Content Hub
 
+### Render order (top → bottom, window scroll)
+
+1. HeroSection — 100 vh
+2. AboutSection — 100 vh
+3. PortfolioSection — min-h-screen
+4. MetricsSection — 100 vh
+5. FooterSection — 100 vh
+
 ### Trigger strategy per section
 
 | Section | Entry trigger | Animation engine | Notes |
 | :--- | :--- | :--- | :--- |
-| **HeroSection** | Immediate (always visible on mount) | GSAP `gsap.to` | Magnetic pull on buttons via `mousemove` event listener |
-| **AboutSection** | `IntersectionObserver` (threshold 0.15) | GSAP `fromTo` | Blur+opacity reveal per line; dual-speed parallax via `scroll` event on `#main-content` |
+| **HeroSection** | Immediate (always visible on mount) | GSAP `gsap.to` | Magnetic pull via `mousemove`; links (Email/Call/Register) are plain text; Teams is solid black box |
+| **AboutSection** | `IntersectionObserver` (threshold 0.15) | GSAP `fromTo` | Blur+opacity reveal per line; dual-speed parallax via `scroll` on `window`; category tags run as infinite CSS marquee (`marquee-scroll` keyframe), pause on hover |
 | **PortfolioSection** | Immediate | Vanilla `mousemove` + GSAP `gsap.to` | 3D card tilt, cursor-tracking glow, thumbnail scale |
-| **MetricsSection** | `IntersectionObserver` (threshold 0.30) | GSAP `gsap.to` on plain JS object | Odometer: animates `{val: 0}` → target, reads back in `onUpdate` |
-| **FooterSection** | `IntersectionObserver` (threshold 0.30) | `setTimeout` chain (no GSAP) | Typewriter writes directly to `textSpanRef.current.textContent` |
+| **MetricsSection** | `IntersectionObserver` (threshold 0.30) | GSAP `gsap.to` on plain JS object | Odometer: animates `{val: 0}` → target; `+` crosshairs injected at column-divider × top/bottom-border intersections |
+| **FooterSection** | `IntersectionObserver` (threshold 0.30) | `setTimeout` chain (no GSAP) | Typewriter writes directly to `textSpanRef.current.textContent`; bottom meta row uses micro-typography (`text-[10px] tracking-[0.2em]`) |
 
 ### IntersectionObserver scoping
 
-All `IntersectionObserver` instances specify `root: document.querySelector('#main-content')`. This makes the "visible area" for intersection purposes the 100 vh inner scroll box, not the window. A section at inner-scroll position 300 vh that is not yet scrolled to will correctly report as non-intersecting.
+All `IntersectionObserver` instances use `root: null`, which scopes detection to the **window viewport**. This is the correct target now that sections scroll with the global window — there is no inner scroll container.
 
 ```js
 const observer = new IntersectionObserver(
   (entries) => { /* ... */ },
   {
     threshold: 0.15,
-    root: document.querySelector('#main-content'),  // ← scoped to inner box
+    root: null,   // ← window viewport; was root: '#main-content' in old dual-scroll model
   }
 );
 observer.observe(sectionRef.current);
@@ -409,26 +428,26 @@ useGSAP(() => {
 
 ---
 
-### Rule 5 — Never use `scroller: '#main-content'` in GSAP ScrollTrigger
+### Rule 5 — Never use a custom `scroller` option in GSAP ScrollTrigger for content sections
 
 **Symptom:** `TypeError: Cannot read properties of undefined (reading '_gsap')` thrown from inside ScrollTrigger's `_getScrollFunc`.
 
 **Root cause:** When ScrollTrigger resolves a native `overflow-y: scroll` element as a custom scroller, it calls `_getScrollFunc(element)` which accesses `element._gsap` before GSAP has had a chance to initialise its internal property store on that DOM node. The result is `undefined._gsap`.
 
-**Correct pattern for sections inside `#main-content`:**
+**Current pattern — sections use `IntersectionObserver` with `root: null`:**
 
 ```js
-// ❌ DO NOT DO THIS in section components
+// ❌ DO NOT DO THIS in section components (old dual-scroll pattern)
 ScrollTrigger.create({
   trigger: sectionRef.current,
   scroller: '#main-content',   // ← causes _gsap crash
   start: 'top 80%',
 });
 
-// ✅ DO THIS INSTEAD — IntersectionObserver scoped to the inner container
+// ✅ DO THIS INSTEAD — IntersectionObserver against the window viewport
 const observer = new IntersectionObserver(
   (entries) => { entries.forEach(e => { if (e.isIntersecting) { /* animate */ } }); },
-  { threshold: 0.15, root: document.querySelector('#main-content') }
+  { threshold: 0.15, root: null }   // null = window viewport
 );
 observer.observe(sectionRef.current);
 ```
@@ -484,6 +503,13 @@ If `pin: true` is used on a ScrollTrigger, GSAP applies `position: fixed` (and p
   0%, 100% { text-shadow: 0 0 6px rgba(255,255,255,0.8); opacity: 1; }
   50%       { text-shadow: 0 0 24px rgba(255,255,255,0.6); opacity: 0; }
 }
+
+/* About section category tag marquee — injected via <style> inside AboutSection */
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+/* .marquee-animate runs at 24s, pauses when .marquee-group is hovered */
 ```
 
 ### `scroll-behavior` must remain `auto`
@@ -534,4 +560,4 @@ export default {
 
 ---
 
-*Last updated: 2026-05-28 — reflects GSAP 3.15 / @gsap/react 2.1 / React 19 / Vite 8 configuration.*
+*Last updated: 2026-06-02 — reflects single window-scroll model, react-router-dom routing (/, /portfolio, /teams), ScrollToTop utility, 150vh portal runway, root:null IntersectionObserver, marquee tags (AboutSection), crosshair intersections (MetricsSection), and micro-typography footer.*
