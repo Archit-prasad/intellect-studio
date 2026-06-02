@@ -3,7 +3,6 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 
-// Top-level registration (belt-and-suspenders alongside main.jsx)
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const METRICS = [
@@ -19,10 +18,8 @@ function fmt(raw, target) {
     : Math.round(raw).toLocaleString();
 }
 
-// ── Odometer counter — animates a plain JS object, not a DOM element ──────────
 function Counter({ target, suffix, triggered }) {
   const [display, setDisplay] = useState('0');
-  const tween  = useRef(null);
   const hasRun = useRef(false);
 
   useGSAP(() => {
@@ -30,29 +27,25 @@ function Counter({ target, suffix, triggered }) {
     hasRun.current = true;
 
     const obj = { val: 0 };
-    tween.current = gsap.to(obj, {
+    gsap.to(obj, {
       val: target,
       duration: 2.2,
       ease: 'power3.out',
       onUpdate:  () => setDisplay(fmt(obj.val, target)),
-      onComplete: () => setDisplay(fmt(target,  target)),
+      onComplete: () => setDisplay(fmt(target, target)),
     });
-  }, [triggered]);    // re-runs when triggered flips true
+  }, [triggered]);
 
   return <>{triggered ? display : '0'}{triggered ? suffix : ''}</>;
 }
 
-// ── Section ───────────────────────────────────────────────────────────────────
 export default function MetricsSection() {
-  const sectionRef = useRef(null);   // ← attached to <section> ✓
+  const sectionRef = useRef(null);
   const [triggered, setTriggered] = useState(false);
 
-  // IntersectionObserver fires when the section enters the #main-content viewport.
-  // No GSAP ScrollTrigger / custom scroller involved — eliminates the _gsap crash.
+  // root: null — window viewport (no #main-content dependency)
   useGSAP(() => {
     if (!sectionRef.current) return;
-
-    const container = document.querySelector('#main-content');
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -63,28 +56,23 @@ export default function MetricsSection() {
           }
         });
       },
-      { threshold: 0.3, root: container || null }
+      { threshold: 0.3, root: null }
     );
 
     observer.observe(sectionRef.current);
-
     return () => observer.disconnect();
   }, { scope: sectionRef, dependencies: [] });
 
   return (
     <section
-      ref={sectionRef}           /* ← ref attached ✓ */
+      ref={sectionRef}
       id="metrics"
       className="relative bg-black flex items-center overflow-hidden"
-      style={{
-        height: '100vh', minHeight: '100vh',
-        scrollSnapAlign: 'start', scrollSnapStop: 'always',
-      }}
+      style={{ height: '100vh', minHeight: '100vh' }}
     >
       <div className="absolute top-0 left-0 right-0 h-px bg-white/10" />
       <div className="absolute bottom-0 left-0 right-0 h-px bg-white/10" />
 
-      {/* Subtle grid texture */}
       <div className="absolute inset-0 pointer-events-none" style={{
         backgroundImage:
           'repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.025) 40px),' +
@@ -99,10 +87,16 @@ export default function MetricsSection() {
           </span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 border-t border-white/10">
+        <div className="grid grid-cols-2 md:grid-cols-4 border-t border-white/10 border-b border-b-white/10">
           {METRICS.map((m, i) => (
             <div key={m.label} className="relative py-10 md:py-14 md:px-8"
               style={{ borderRight: i < METRICS.length - 1 ? '1px solid rgba(255,255,255,0.10)' : 'none' }}>
+              {i < METRICS.length - 1 && (
+                <>
+                  <span className="absolute top-0 right-0 text-[10px] font-mono text-white/25 select-none pointer-events-none -translate-x-1/2 -translate-y-1/2">+</span>
+                  <span className="absolute bottom-0 right-0 text-[10px] font-mono text-white/25 select-none pointer-events-none -translate-x-1/2 translate-y-1/2">+</span>
+                </>
+              )}
               <div className="font-mono font-bold text-white leading-none mb-3 tabular-nums"
                 style={{ fontSize: 'clamp(2.2rem, 4.5vw, 4.5rem)', letterSpacing: '-0.03em' }}>
                 <Counter target={m.value} suffix={m.suffix} triggered={triggered} />

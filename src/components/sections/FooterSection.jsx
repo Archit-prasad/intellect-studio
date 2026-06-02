@@ -3,7 +3,6 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 
-// Top-level registration (belt-and-suspenders alongside main.jsx)
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const CTA     = 'READY TO BUILD SOMETHING REAL?';
@@ -12,17 +11,16 @@ const HOLD_MS = 3000;
 const WIPE_MS = 25;
 
 export default function FooterSection() {
-  const sectionRef  = useRef(null);   // ← attached to <section> ✓
-  const textSpanRef = useRef(null);   // ← attached to <span> ✓
+  const sectionRef  = useRef(null);
+  const textSpanRef = useRef(null);
   const timerRef    = useRef(null);
   const hasStarted  = useRef(false);
 
-  // Typewriter — writes directly to the DOM span; no GSAP, no state re-renders.
   const runTypewriter = useCallback(() => {
     let i = 0, phase = 'typing';
 
     const tick = () => {
-      if (!textSpanRef.current) return;   // guard: span may have unmounted
+      if (!textSpanRef.current) return;
 
       if (phase === 'typing') {
         i++;
@@ -41,18 +39,15 @@ export default function FooterSection() {
           return;
         }
       }
-      timerRef.current = setTimeout(tick, CHAR_MS);
+      timerRef.current = setTimeout(tick, phase === 'wiping' ? WIPE_MS : CHAR_MS);
     };
 
     tick();
   }, []);
 
-  // IntersectionObserver triggers the typewriter when section enters viewport.
-  // root: '#main-content' scopes the intersection check to the inner scroll box.
+  // Use window viewport (root: null) since #main-content no longer exists
   useGSAP(() => {
     if (!sectionRef.current) return;
-
-    const container = document.querySelector('#main-content');
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -64,7 +59,7 @@ export default function FooterSection() {
           }
         });
       },
-      { threshold: 0.3, root: container || null }
+      { threshold: 0.3, root: null }
     );
 
     observer.observe(sectionRef.current);
@@ -77,14 +72,10 @@ export default function FooterSection() {
 
   return (
     <section
-      ref={sectionRef}            /* ← ref attached ✓ */
+      ref={sectionRef}
       id="contact"
       className="relative flex flex-col items-center justify-center overflow-hidden"
-      style={{
-        height: '100vh', minHeight: '100vh',
-        background: '#09090B',
-        scrollSnapAlign: 'start', scrollSnapStop: 'always',
-      }}
+      style={{ height: '100vh', minHeight: '100vh', background: '#09090B' }}
     >
       {/* Dot-grid texture */}
       <div className="absolute inset-0 pointer-events-none" style={{
@@ -103,7 +94,7 @@ export default function FooterSection() {
       <div className="absolute top-10 left-8 md:left-12">
         <span className="font-mono font-bold uppercase text-white/20"
           style={{ fontSize: '11px', letterSpacing: '0.25em' }}>
-          05 // JOIN US
+          05 // CONTACT
         </span>
       </div>
 
@@ -113,57 +104,26 @@ export default function FooterSection() {
         {/* Typewriter headline */}
         <div className="font-mono font-bold text-white uppercase text-center w-full block mb-14"
           style={{ fontSize: 'clamp(1rem, 2.8vw, 2.5rem)', letterSpacing: '0.25em', lineHeight: 1.4 }}>
-          <span ref={textSpanRef} />   {/* ← ref attached ✓ */}
+          <span ref={textSpanRef} />
           <span className="cursor-glow-blink inline-block text-white" style={{ marginLeft: '3px' }}>█</span>
         </div>
 
         <p className="font-mono text-white/25 uppercase mb-12"
           style={{ fontSize: '11px', letterSpacing: '0.2em' }}>
-          Talent intake open · We build with exceptional people
+          Let's build something exceptional together
         </p>
-
-        {/* Application buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <a href="#apply-job"
-            className="font-sans font-bold text-white uppercase text-sm"
-            style={{
-              padding: '16px 44px', minWidth: '210px', textAlign: 'center', display: 'inline-block',
-              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-              letterSpacing: '0.12em',
-            }}
-            onMouseEnter={(e) => gsap.to(e.currentTarget, { background: 'rgba(255,255,255,0.14)', duration: 0.25 })}
-            onMouseLeave={(e) => gsap.to(e.currentTarget, { background: 'rgba(255,255,255,0.08)', duration: 0.3  })}
-          >
-            Apply for Job
-          </a>
-
-          <a href="#apply-intern"
-            className="font-sans font-bold text-white uppercase text-sm"
-            style={{
-              padding: '16px 44px', minWidth: '210px', textAlign: 'center', display: 'inline-block',
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-              backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-              letterSpacing: '0.12em',
-            }}
-            onMouseEnter={(e) => gsap.to(e.currentTarget, { background: 'rgba(255,255,255,0.07)', duration: 0.25 })}
-            onMouseLeave={(e) => gsap.to(e.currentTarget, { background: 'rgba(255,255,255,0.03)', duration: 0.3  })}
-          >
-            Apply as Intern
-          </a>
-        </div>
 
         {/* Footer meta */}
         <div className="mt-16 flex items-center justify-center flex-wrap gap-4 md:gap-6">
-          <span className="font-mono text-white/20 uppercase" style={{ fontSize: '10px', letterSpacing: '0.2em' }}>
+          <span className="font-mono text-[10px] tracking-[0.2em] text-neutral-500 uppercase">
             hello@intellectstudio.com
           </span>
           <span className="text-white/10 hidden md:inline">·</span>
-          <span className="font-mono text-white/15 uppercase" style={{ fontSize: '10px', letterSpacing: '0.2em' }}>
+          <span className="font-mono text-[10px] tracking-[0.2em] text-neutral-500 uppercase">
             © 2024 Intellect Studio
           </span>
           <span className="text-white/10 hidden md:inline">·</span>
-          <span className="font-mono text-white/15 uppercase" style={{ fontSize: '10px', letterSpacing: '0.2em' }}>
+          <span className="font-mono text-[10px] tracking-[0.2em] text-neutral-500 uppercase">
             All Rights Reserved
           </span>
         </div>
