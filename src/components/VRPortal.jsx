@@ -3,12 +3,10 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 
-// Top-level registration (belt-and-suspenders — main.jsx also registers)
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const TYPEWRITER_LINES = ['CREATE.', 'DESIGN.', 'LAUNCH.'];
 
-// ── Self-contained typewriter (pure React state, no GSAP dependency) ─────────
 function PortalTypewriter() {
   const [text, setText] = useState('');
   const timer = useRef(null);
@@ -57,7 +55,9 @@ function PortalTypewriter() {
   );
 }
 
-// ── Portal component ──────────────────────────────────────────────────────────
+// Number of homepage content sections (Hero, Portfolio, About, Metrics, Footer)
+const N_SECTIONS = 5;
+
 export default function VRPortal() {
   const runwayRef      = useRef(null);
   const overlayRef     = useRef(null);
@@ -68,23 +68,23 @@ export default function VRPortal() {
   const brandRef       = useRef(null);
   const typeUIRef      = useRef(null);
 
-  // useGSAP: auto-reverts on unmount, handles StrictMode double-invoke safely.
-  // No scope — targets are fixed-position siblings outside the runway spacer.
   useGSAP(() => {
-    // ── Hard guard: abort if the scroll trigger element isn't mounted ─────
     if (!runwayRef.current) return;
 
     const tl = gsap.timeline({
       scrollTrigger: {
-        trigger: runwayRef.current,   // 300vh spacer — drives the scrub
+        trigger: runwayRef.current,
         start: 'top top',
-        end:   'bottom top',
+        // Compressed to ~1100px of scroll (Step 3: +=1000 – +=1200 baseline)
+        end: '+=1100',
         scrub: 1,
-        // No pin:true — fixed overlay elements are already viewport-locked.
-        // pin would attach position:fixed + possible transforms to the runway,
-        // creating a CSS containing block that re-parents fixed descendants.
+        // Snap portal animation to N equidistant steps (Step 3)
+        snap: {
+          snapTo: 1 / (N_SECTIONS - 1),
+          duration: { min: 0.2, max: 0.6 },
+          ease: 'power1.inOut',
+        },
         onUpdate(self) {
-          // Guard: refs may be null during StrictMode unmount window
           if (!brandRef.current || !typeUIRef.current) return;
           gsap.set([brandRef.current, typeUIRef.current], {
             opacity: self.progress > 0.02 ? 0 : 1,
@@ -92,16 +92,16 @@ export default function VRPortal() {
         },
         onLeave() {
           if (overlayRef.current) {
-            overlayRef.current.style.visibility  = 'hidden';
+            overlayRef.current.style.visibility   = 'hidden';
             overlayRef.current.style.pointerEvents = 'none';
           }
           if (heroPreviewRef.current) {
-            heroPreviewRef.current.style.visibility  = 'hidden';
+            heroPreviewRef.current.style.visibility   = 'hidden';
             heroPreviewRef.current.style.pointerEvents = 'none';
           }
         },
         onEnterBack() {
-          if (overlayRef.current)    overlayRef.current.style.visibility = 'visible';
+          if (overlayRef.current)     overlayRef.current.style.visibility = 'visible';
           if (heroPreviewRef.current) heroPreviewRef.current.style.visibility = 'visible';
           if (brandRef.current && typeUIRef.current)
             gsap.set([brandRef.current, typeUIRef.current], { opacity: 1 });
@@ -109,38 +109,35 @@ export default function VRPortal() {
       },
     });
 
-    // Each animation target is guarded before being added to the timeline
     if (maskImgRef.current) {
-      tl.to(maskImgRef.current, {
-        scale: 35, transformOrigin: '50% 50%', ease: 'power2.in',
-      }, 0);
+      tl.to(maskImgRef.current, { scale: 35, transformOrigin: '50% 50%', ease: 'power2.in' }, 0);
     }
-
     if (heroTextRef.current) {
       tl.fromTo(heroTextRef.current,
         { scale: 0.7, transformOrigin: '50% 50%' },
         { scale: 1.0, ease: 'power1.out' }, 0);
     }
-
     if (studioTextRef.current) {
       tl.fromTo(studioTextRef.current,
         { scale: 0.7, transformOrigin: '50% 50%' },
         { scale: 1.0, ease: 'power1.out' }, 0);
     }
-
     if (heroPreviewRef.current) {
       tl.to(heroPreviewRef.current, { opacity: 0, ease: 'none' }, 0.88);
     }
 
-  }, []); // empty deps → runs once after first mount
+  }, []);
 
-  // ── JSX ────────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Scroll-space trigger — empty spacer, no children, no animations inside */}
-      <div ref={runwayRef} style={{ height: '300vh' }} />
+      {/*
+        Runway: 150vh — provides scrollable space for the portal animation.
+        Animation plays over the first +=1100px of this runway (Step 3),
+        then onLeave fires to clean up fixed overlays as HeroSection enters view.
+      */}
+      <div ref={runwayRef} style={{ height: '150vh' }} />
 
-      {/* LAYER 0 — sand hero preview (behind the VR mask, visible through lens) */}
+      {/* LAYER 0 — sand hero preview */}
       <div ref={heroPreviewRef} style={{
         position: 'fixed', inset: 0, zIndex: 5,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -168,7 +165,7 @@ export default function VRPortal() {
         </div>
       </div>
 
-      {/* LAYER 1 — VR mask (mix-blend-mode:multiply makes white-background PNGs transparent) */}
+      {/* LAYER 1 — VR mask */}
       <div ref={overlayRef} style={{
         position: 'fixed', inset: 0, zIndex: 20, pointerEvents: 'none', overflow: 'hidden',
       }}>
